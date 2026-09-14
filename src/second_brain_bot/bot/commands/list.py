@@ -31,7 +31,7 @@ class ListCommand(Command):
 
         for item in items:
             lines.append(
-                f"#{item['id']} {item['keyword']} "
+                f"#{item['id']} {item['content']} "
                 f"[{item['category']}] - {item['status']}"
             )
 

@@ -44,6 +44,19 @@ def add_item(
 
     return cursor.lastrowid
 
+def delete_item(
+        connection:sqlite3.Connection,
+        id:str
+) -> None:
+    connection.execute(
+     """
+     Delete from research_items where (id=?)
+     """,
+        (id,)
+    )
+    connection.commit()
+
+
 
 def list_items(
     connection: sqlite3.Connection,
