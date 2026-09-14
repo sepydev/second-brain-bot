@@ -56,6 +56,15 @@ def delete_item(
     )
     connection.commit()
 
+def clear_items(
+        connection:sqlite3.Connection,
+) -> None:
+    connection.execute(
+    """
+    Delete from research_items where 1=1
+    """
+    )
+
 
 
 def list_items(
