@@ -1,10 +1,9 @@
 from telegram import Update
 from telegram.ext import (
     Application,
-    CommandHandler,
 )
 
-from second_brain_bot.bot.handlers import add_command, help_command, list_command, start
+from second_brain_bot.bot.registery import register_commands
 from second_brain_bot.config import settings
 from second_brain_bot.database.connection import create_connection
 from second_brain_bot.database.repository import initialize_database
@@ -21,10 +20,8 @@ def main() -> None:
     )
 
     application.bot_data["database"] = database
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("add", add_command))
-    application.add_handler(CommandHandler("list", list_command))
+    commands = register_commands(application)
+    application.bot_data["commands"] = commands
 
     print("Bot is running...")
 
