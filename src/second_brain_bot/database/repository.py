@@ -7,7 +7,7 @@ def initialize_database(connection: sqlite3.Connection) -> None:
         """
         CREATE TABLE IF NOT EXISTS research_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            keyword TEXT NOT NULL,
+            content TEXT NOT NULL,
             category TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'inbox',
             created_at TEXT NOT NULL,
@@ -21,7 +21,7 @@ def initialize_database(connection: sqlite3.Connection) -> None:
 
 def add_item(
     connection: sqlite3.Connection,
-    keyword: str,
+    content: str,
     category: str,
 ) -> int:
     now = datetime.now(UTC).isoformat()
@@ -29,7 +29,7 @@ def add_item(
     cursor = connection.execute(
         """
         INSERT INTO research_items (
-            keyword,
+            content,
             category,
             status,
             created_at,
@@ -37,7 +37,7 @@ def add_item(
         )
         VALUES (?, ?, 'inbox', ?, ?)
         """,
-        (keyword, category, now, now),
+        (content, category, now, now),
     )
 
     connection.commit()
@@ -50,7 +50,7 @@ def list_items(
 ) -> list[sqlite3.Row]:
     cursor = connection.execute(
         """
-        SELECT id, keyword, category, status, created_at
+        SELECT id, content, category, status, created_at
         FROM research_items
         ORDER BY created_at DESC
         """
