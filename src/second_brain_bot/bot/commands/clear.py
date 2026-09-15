@@ -2,7 +2,6 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from second_brain_bot.bot.command import Command
-from second_brain_bot.database.repository import clear_items
 
 
 class ClearCommand(Command):
@@ -17,8 +16,8 @@ class ClearCommand(Command):
         if update.message is None:
             return
 
-        database = context.application.bot_data["database"]
+        repository = context.application.bot_data["repository"]
 
-        clear_items(database)
+        repository.clear_research_items()
 
         await update.message.reply_text("All Items deleted.")

@@ -10,7 +10,9 @@ class Settings(BaseSettings):
     ollama_model:str
 
     second_brain_path:Path
-    database_path:Path = Path("data/reasearch.db")
+    database_path:Path = Path("data/research.db")
+
+    redis_url:str = "redis://localhost:6379/0"
 
     model_config = SettingsConfigDict(
         env_file=".env",

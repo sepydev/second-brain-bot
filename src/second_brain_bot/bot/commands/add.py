@@ -2,7 +2,6 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from second_brain_bot.bot.command import Command
-from second_brain_bot.database.repository import add_item
 
 
 class AddCommand(Command):
@@ -19,7 +18,7 @@ class AddCommand(Command):
             if args[index] == "--category" or args[index]== "-c":
                 index += 1
                 categories = args[index: ]
-                continue
+                break
 
             content_args.append(args[index])
             index += 1
@@ -42,10 +41,10 @@ class AddCommand(Command):
         content, category = self._parse_add_args(context.args[:])
 
 
-        database = context.application.bot_data["database"]
+        repository = context.application.bot_data["repository"]
 
-        item_id = add_item(
-            database,
+
+        item_id = repository.add_research_item(
             content=content,
             category=category,
         )

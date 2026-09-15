@@ -2,7 +2,6 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from second_brain_bot.bot.command import Command
-from second_brain_bot.database.repository import list_items
 
 
 class ListCommand(Command):
@@ -17,9 +16,9 @@ class ListCommand(Command):
         if update.message is None:
             return
 
-        database = context.application.bot_data["database"]
+        repository = context.application.bot_data["repository"]
 
-        items = list_items(database)
+        items =repository.list_research_items()
 
         if not items:
             await update.message.reply_text(

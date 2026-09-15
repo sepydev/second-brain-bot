@@ -2,7 +2,6 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from second_brain_bot.bot.command import Command
-from second_brain_bot.database.repository import delete_item
 
 
 class DeleteCommand(Command):
@@ -17,10 +16,10 @@ class DeleteCommand(Command):
         if update.message is None:
             return
 
-        database = context.application.bot_data["database"]
+        repository = context.application.bot_data["repository"]
 
         id = context.args[0]
 
-        delete_item(database, id)
+        repository.delete_research_item(id)
 
         await update.message.reply_text("Selected item deleted.")
