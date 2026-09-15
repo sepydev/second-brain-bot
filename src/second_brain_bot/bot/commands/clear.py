@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from second_brain_bot.bot.command import Command
-from second_brain_bot.database.repository import delete_item, clear_items
+from second_brain_bot.database.repository import clear_items
 
 
 class ClearCommand(Command):
