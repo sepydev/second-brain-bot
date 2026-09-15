@@ -1,7 +1,12 @@
 import asyncio
+import logging
+from dataclasses import dataclass
 
+from celery.signals import worker_process_init
 from telegram import Bot
 from telegram.constants import MessageLimit
+from telegram.error import NetworkError, TimedOut
+from telegram.request import HTTPXRequest
 
 from second_brain_bot.config import settings
 from second_brain_bot.database.connection import create_connection, initialize_database
@@ -13,39 +18,96 @@ from second_brain_bot.research.service import ResearchService
 from second_brain_bot.tasks.celery_app import celery_app
 from second_brain_bot.web.search import WebSearch
 
-_connection = create_connection(settings.database_path)
-initialize_database(_connection)
 
-repository = ResearchRepository(_connection)
-knowledge_search = KnowledgeSearch(settings.second_brain_path)
-web_search = WebSearch()
-llm = OllamaClient()
+@dataclass
+class WorkerServices:
+    repository: ResearchRepository
+    llm: OllamaClient
+    research_service: ResearchService
 
-research_service = ResearchService(
-    knowledge_search=knowledge_search,
-    web_search=web_search,
-    llm=llm,
-)
+
+logger = logging.getLogger(__name__)
+
+_services: WorkerServices | None = None
+
+
+def _build_services() -> WorkerServices:
+    connection = create_connection(settings.database_path)
+    initialize_database(connection)
+
+    repository = ResearchRepository(connection)
+    llm = OllamaClient()
+
+    research_service = ResearchService(
+        knowledge_search=KnowledgeSearch(settings.second_brain_path),
+        web_search=WebSearch(),
+        llm=llm,
+    )
+
+    return WorkerServices(
+        repository=repository,
+        llm=llm,
+        research_service=research_service,
+    )
+
+
+@worker_process_init.connect
+def _on_worker_process_init(**kwargs) -> None:
+    global _services
+    _services = _build_services()
+
+
+def _get_services() -> WorkerServices:
+    global _services
+
+    if _services is None:
+        _services = _build_services()
+
+    return _services
+
+
+NOTIFY_RETRIES = 3
 
 
 def _notify(chat_id: int, text: str) -> None:
     async def _send() -> None:
-        bot = Bot(token=settings.telegram_bot_token)
+        request = HTTPXRequest(
+            connect_timeout=15.0,
+            read_timeout=30.0,
+            write_timeout=30.0,
+        )
+        bot = Bot(token=settings.telegram_bot_token, request=request)
 
         chunk_size = MessageLimit.MAX_TEXT_LENGTH
 
         async with bot:
             for start in range(0, len(text), chunk_size):
-                await bot.send_message(
-                    chat_id=chat_id,
-                    text=text[start : start + chunk_size],
-                )
+                chunk = text[start : start + chunk_size]
 
-    asyncio.run(_send())
+                for attempt in range(1, NOTIFY_RETRIES + 1):
+                    try:
+                        await bot.send_message(chat_id=chat_id, text=chunk)
+                        break
+                    except (TimedOut, NetworkError):
+                        if attempt == NOTIFY_RETRIES:
+                            raise
+                        await asyncio.sleep(attempt)
+
+    try:
+        asyncio.run(_send())
+    except (TimedOut, NetworkError):
+        logger.exception(
+            "Failed to notify chat %s after %d attempts",
+            chat_id,
+            NOTIFY_RETRIES,
+        )
 
 
 @celery_app.task(name="research.run_research")
 def run_research(item_id: int, chat_id: int) -> None:
+    services = _get_services()
+    repository = services.repository
+
     repository.set_item_status(item_id, "researching")
 
     item = repository.get_research_item(item_id)
@@ -55,7 +117,7 @@ def run_research(item_id: int, chat_id: int) -> None:
         return
 
     try:
-        result = research_service.research(
+        result = services.research_service.research(
             topic=item["content"],
             category=item["category"],
         )
@@ -85,6 +147,9 @@ def run_research(item_id: int, chat_id: int) -> None:
 
 @celery_app.task(name="research.run_followup")
 def run_followup(session_id: int, chat_id: int) -> None:
+    services = _get_services()
+    repository = services.repository
+
     session = repository.get_session(session_id)
 
     if session is None:
@@ -112,11 +177,12 @@ def run_followup(session_id: int, chat_id: int) -> None:
     ]
 
     try:
-        answer = llm.chat(llm_messages)
+        answer = services.llm.chat(llm_messages)
     except Exception as exc:
         _notify(chat_id, f"Follow-up failed: {exc}")
         return
 
     repository.add_message(session_id, "assistant", answer)
+    repository.update_research(session["research_item_id"], answer)
 
     _notify(chat_id, answer)

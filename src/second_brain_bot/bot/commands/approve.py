@@ -3,7 +3,10 @@ from telegram.ext import ContextTypes
 
 from second_brain_bot.bot.command import Command
 from second_brain_bot.config import settings
-from second_brain_bot.knowledge.writer import write_knowledge_note
+from second_brain_bot.knowledge.writer import (
+    resolve_target_directory,
+    write_knowledge_note,
+)
 
 
 class ApproveCommand(Command):
@@ -50,8 +53,21 @@ class ApproveCommand(Command):
             )
             return
 
-        path = write_knowledge_note(
+        knowledge_search = context.application.bot_data["knowledge_search"]
+
+        matches = knowledge_search.search(
+            item["content"],
+            category=item["category"],
+        )
+
+        target_directory = resolve_target_directory(
             root=settings.second_brain_path,
+            category=item["category"],
+            matches=matches,
+        )
+
+        path = write_knowledge_note(
+            target_directory=target_directory,
             category=item["category"],
             topic=item["content"],
             content=item["research"],

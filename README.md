@@ -96,6 +96,35 @@ uv run second-brain-bot
 uv run celery -A second_brain_bot.tasks.celery_app worker --loglevel=INFO
 ```
 
+### macOS: worker crashes with `signal 11 (SIGSEGV)`
+
+Celery's default `prefork` pool forks worker child processes from the
+parent. On macOS, some native libraries (Apple's Objective-C runtime, used
+transitively by httpx/urllib3/lxml) are not fork-safe and will crash a
+freshly forked child the first time they're touched. If you see a
+`WorkerLostError` / `signal 11` in the worker log, set this before starting
+the worker:
+
+```
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+uv run celery -A second_brain_bot.tasks.celery_app worker --loglevel=INFO
+```
+
+If it still crashes, switch the worker to the `solo` pool (single process,
+no forking — fine for local/dev use):
+
+```
+uv run celery -A second_brain_bot.tasks.celery_app worker --loglevel=INFO --pool=solo
+```
+
+### Worker task fails with `telegram.error.TimedOut`
+
+This is the final Telegram notification timing out, not the research itself —
+by the time it fires, the research result is already saved to SQLite. The
+worker retries the send a few times with longer timeouts before giving up; if
+it still can't reach Telegram it logs the failure instead of crashing the
+task. Check your network connection to `api.telegram.org` if this persists.
+
 ## Usage
 
 ```

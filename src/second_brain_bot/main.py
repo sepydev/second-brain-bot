@@ -5,6 +5,7 @@ from second_brain_bot.bot.registry import register_commands
 from second_brain_bot.config import settings
 from second_brain_bot.database.connection import create_connection, initialize_database
 from second_brain_bot.database.repository import ResearchRepository
+from second_brain_bot.knowledge.search import KnowledgeSearch
 
 
 def main() -> None:
@@ -14,6 +15,7 @@ def main() -> None:
     initialize_database(connection)
 
     repository = ResearchRepository(connection)
+    knowledge_search = KnowledgeSearch(settings.second_brain_path)
 
     application = (
         Application.builder()
@@ -24,6 +26,7 @@ def main() -> None:
     commands = register_commands(application)
 
     application.bot_data["repository"] = repository
+    application.bot_data["knowledge_search"] = knowledge_search
     application.bot_data["commands"] = commands
 
     application.add_handler(
